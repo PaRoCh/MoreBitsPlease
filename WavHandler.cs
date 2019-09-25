@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-
 namespace Wav
 {
     public class WavOptions
@@ -22,6 +21,21 @@ namespace Wav
         public byte[] SubChunk2ID = WavHandler.ToBytes("data");
         public int SubChunk2Size;
         public byte[] ExtraData = new byte[] { };
+        public byte[] Data = null;
+        public double Duration
+        {
+            get
+            {
+                return this.Samples/this.SampleRate;
+            }
+        }
+        public int Samples
+        {
+            get
+            {
+                return 8*this.SubChunk2Size/(this.NumChannels*this.BitsPerSample);
+            }
+        }
     }
     public class WavHandler
     {
@@ -38,7 +52,7 @@ namespace Wav
         {
             return Encoding.ASCII.GetBytes(inp);
         }
-        public static (WavOptions opts, byte[] data) Read(string path)
+        public static WavOptions Read(string path)
         {
             WavOptions options = new WavOptions();
             byte[] bytes = File.ReadAllBytes(path).ToArray();
@@ -46,6 +60,7 @@ namespace Wav
             options.ChunkSize = ChunkReader(b.GetRange(4, 4).ToArray());
             options.SubShunk1Size = ChunkReader(b.GetRange(16, 4).ToArray());
             options.AudioFormat = (short)ChunkReader(b.GetRange(20, 2).ToArray());
+            options.NumChannels = (short)ChunkReader(b.GetRange(22, 2).ToArray());
             options.SampleRate = ChunkReader(b.GetRange(24, 4).ToArray());
             options.BitsPerSample = (short)ChunkReader(b.GetRange(34, 2).ToArray());
             int offset = 0;
@@ -55,8 +70,8 @@ namespace Wav
                 options.ExtraData = b.GetRange(36, offset).ToArray();
             }
             options.SubChunk2Size = ChunkReader(b.GetRange(offset+40, 4).ToArray());
-            byte[] data = b.GetRange(44+offset, b.Count - offset-44).ToArray();
-            return (options, data);
+            options.Data = b.GetRange(44 + offset, b.Count - offset - 44).ToArray();
+            return options;
         }
         private static byte[] b2(Int16 i) => BitConverter.GetBytes(i);
         private static byte[] b4(int i) => BitConverter.GetBytes(i);
@@ -90,12 +105,11 @@ namespace Wav
     {
         static void Main(string[] args)
         {
-            string source = @"C:\откуда брать файл",
-                   dest = @"C:\куда сохранить";
-            (WavOptions options, byte[] data) d = WavHandler.Read(source);
-            WavHandler.Write(d.options, d.data, dest);
+            string source = @"C:\____",
+                   dest = @"C:\____";
+            WavOptions d = WavHandler.Read(source);
+            WavHandler.Write(d, d.Data, dest);
             Console.WriteLine(File.ReadAllText(source) == File.ReadAllText(dest));
-            //Файл будет перезаписан правильно, скорее всего...
         }
     }
 }
